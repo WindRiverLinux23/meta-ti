@@ -15,6 +15,8 @@ EXTRA_OEMAKE = "CC="${CC}""
 TARGET_CC_ARCH += "${LDFLAGS}"
 
 BRANCH = "master"
-SRC_URI = "git://git.ti.com/git/jacinto7_multimedia/viddec-test-app.git;protocol=https;branch=${BRANCH}"
-
+SRC_URI = "git://git.ti.com/git/jacinto7_multimedia/viddec-test-app.git;protocol=https;branch=${BRANCH} \
+	file://0001-viddec-test-app-initialize-string-array-to-zero.patch \
+	file://0001-viddec-test-app-port-to-the-new-bitstream-filter-API.patch \
+"
 S = "${WORKDIR}/git"
