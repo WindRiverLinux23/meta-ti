@@ -1,0 +1,154 @@
+From 907196aecc8f91f80005d727e039c740035777fb Mon Sep 17 00:00:00 2001
+From: Xulin Sun <xulin.sun@windriver.com>
+Date: Sun, 20 Mar 2022 17:05:35 +0800
+Subject: [PATCH] viddec-test-app: port to the new bitstream filter APIs
+
+The ffmpeg package has been updated to the new version, the old APIs
+like "av_bitstream_filter_init/av_bitstream_filter_filter/" are removed.
+Here replaced with new APIs.
+
+Upstream-Status: pending
+
+Signed-off-by: Xulin Sun <xulin.sun@windriver.com>
+---
+ demux.c | 45 ++++++++++++++++++++++++---------------------
+ demux.h |  5 +++--
+ 2 files changed, 27 insertions(+), 23 deletions(-)
+
+diff --git a/demux.c b/demux.c
+index f68cb01..8922280 100644
+--- a/demux.c
++++ b/demux.c
+@@ -61,7 +61,7 @@ find_stream(AVFormatContext *afc)
+ 	unsigned int i;
+ 
+ 	for (i = 0; i < afc->nb_streams; i++) {
+-		if (afc->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO && !st)
++		if (afc->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && !st)
+ 			st = afc->streams[i];
+ 		else
+ 			afc->streams[i]->discard = AVDISCARD_ALL;
+@@ -75,8 +75,11 @@ static struct demux * open_stream(const char * filename, int *width,
+ {
+ 	AVFormatContext *afc = open_file(filename);
+ 	AVStream *st = find_stream(afc);
+-	AVCodecContext *cc = st->codec;
+-	AVBitStreamFilterContext *bsf = NULL;
++	AVCodecParameters *cc = st->codecpar;
++	const AVBitStreamFilter *filter;
++	AVBSFContext *bsf = NULL;
++	int ret;
++
+ 	struct demux *demux;
+ 
+ 	if ((cc->codec_id != AV_CODEC_ID_H264) &&
+@@ -91,18 +94,24 @@ static struct demux * open_stream(const char * filename, int *width,
+ 
+ 	if (cc->extradata && cc->extradata_size > 0 && cc->extradata[0] == 1) {
+ 		printf("initializing bitstream filter");
+-		bsf = av_bitstream_filter_init("h264_mp4toannexb");
+-		if (!bsf) {
++		filter = av_bsf_get_by_name("h264_mp4toannexb");
++		if (!filter) {
+ 			printf("could not open '%s': failed to initialize bitstream filter",
+ 				filename);
+ 			return NULL;
+ 		}
++		ret = av_bsf_alloc(filter, &bsf);
++	        if (ret < 0)
++			return NULL;
++	        ret = av_bsf_init(bsf);
++		if (ret < 0)
++			return NULL;
+ 	}
+ 
+ 	*width = cc->width;
+ 	*height = cc->height;
+ 	*bitdepth = cc->bits_per_raw_sample;
+-	*pix_fmt = cc->pix_fmt;
++	*pix_fmt = cc->format;
+ 	*codec = cc->codec_id;
+ 
+ 	demux = calloc(1, sizeof(*demux));
+@@ -121,8 +130,6 @@ struct demux * demux_init(const char * filename, int *width, int *height,
+ {
+ 	struct demux *demux;
+ 
+-	av_register_all();
+-	avcodec_register_all();
+ 	demux = open_stream(filename, width, height, bitdepth, pix_fmt, codec);
+ 	if ((demux != NULL) && (demux->cc->codec_id == AV_CODEC_ID_MPEG4)) {
+ 		if (get_esds_offset(filename, demux))
+@@ -199,17 +206,13 @@ int demux_read(struct demux *demux, unsigned char *input, int size)
+ 
+ 			if (demux->bsf) {
+ 				int ret;
+-				ret = av_bitstream_filter_filter(demux->bsf,
+-								 demux->cc,
+-								 NULL,
+-								 &buf,
+-								 &bufsize,
+-								 pk.data,
+-								 pk.size,
+-								 0);
++				ret = av_bsf_send_packet(demux->bsf, &pk);
+ 				if (ret < 0) {
+-					printf("bsf error: %d", ret);
+-					return 0;
++					printf("bsf send error: %d", ret);
++					return ret;
++				}
++			        while (!ret) {
++					ret = av_bsf_receive_packet(demux->bsf, &pk);
+ 				}
+ 			} else {
+ 				buf = pk.data;
+@@ -232,11 +235,11 @@ int demux_read(struct demux *demux, unsigned char *input, int size)
+ 			if (demux->bsf)
+ 				av_free(buf);
+ 
+-			av_free_packet(&pk);
++			av_packet_unref(&pk);
+ 
+ 			return bufsize;
+ 		}
+-		av_free_packet(&pk);
++		av_packet_unref(&pk);
+ 	}
+ 
+ 	return 0;
+@@ -251,7 +254,7 @@ void demux_deinit(struct demux *demux)
+ {
+ 	avformat_close_input(&demux->afc);
+ 	if (demux->bsf)
+-		av_bitstream_filter_close(demux->bsf);
++		av_bsf_free(&demux->bsf);
+ 	free(demux->esds.data);
+ 	free(demux);
+ }
+diff --git a/demux.h b/demux.h
+index 4793e7e..0eb4d62 100644
+--- a/demux.h
++++ b/demux.h
+@@ -36,6 +36,7 @@
+ #include <libavformat/avformat.h>
+ #include <libavcodec/avcodec.h>
+ #include <libavutil/pixdesc.h>
++#include <libavcodec/bsf.h>
+ 
+ struct ESdescriptor {
+ 	int length;
+@@ -45,8 +46,8 @@ struct ESdescriptor {
+ struct demux {
+ 	AVFormatContext *afc;
+ 	AVStream *st;
+-	AVCodecContext *cc;
+-	AVBitStreamFilterContext *bsf;
++	AVCodecParameters *cc;
++	AVBSFContext *bsf;
+ 	struct ESdescriptor esds;
+ 	/* Used for mpeg4 esds data copy */
+ 	int first_in_buff;
+-- 
+2.35.1
+
