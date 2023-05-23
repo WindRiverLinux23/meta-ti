@@ -54,4 +54,4 @@ do_install:append () {
 FILES:${PN}-dev += "${datadir}/mesa/wayland-drm.xml"
 FILES:mesa-vulkan-drivers += "${libdir}/libpvr_mesa_wsi.so"
 
-RRECOMMENDS:mesa-megadriver:append:class-target = " ${@d.getVar('PREFERRED_PROVIDER_virtual/gpudriver')}"
+RRECOMMENDS:mesa-megadriver:append:class-target = " ti-img-rogue-driver"
