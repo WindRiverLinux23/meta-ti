@@ -1,0 +1,51 @@
+From 48ac628f0c6e679c165f08fec18818f802b535d1 Mon Sep 17 00:00:00 2001
+From: Xulin Sun <xulin.sun@windriver.com>
+Date: Tue, 6 Jun 2023 01:28:31 +0000
+Subject: [PATCH] kbuild: wrap cc in double quotes
+
+Issue: LIN1023-777
+
+Set the CC variable correctly, to avoid below building issue:
+make[1]: aarch64-wrs-linux-aarch64-wrs-linux-gcc: No such file or directory
+
+Upstream-Status: Will send upstream later
+
+Signed-off-by: Xulin Sun <xulin.sun@windriver.com>
+---
+ build/linux/kbuild/kbuild.mk | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/build/linux/kbuild/kbuild.mk b/build/linux/kbuild/kbuild.mk
+index f65d6a4..2085766 100644
+--- a/build/linux/kbuild/kbuild.mk
++++ b/build/linux/kbuild/kbuild.mk
+@@ -97,7 +97,7 @@ kbuild: kbuild_check $(TARGET_PRIMARY_OUT)/kbuild/Makefile bridges
+ 		%-android,%-gnu,$(CROSS_TRIPLE)))- \
+ 		CROSS_COMPILE="$(CCACHE) $(KERNEL_CROSS_COMPILE)" \
+ 		EXTRA_CFLAGS="$(ALL_KBUILD_CFLAGS)" \
+-		CC=$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc) \
++		CC="$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc)" \
+ 		AR=$(if $(KERNEL_AR),$(KERNEL_AR),$(KERNEL_CROSS_COMPILE)ar) \
+ 		LD=$(if $(KERNEL_LD),$(KERNEL_LD),$(KERNEL_CROSS_COMPILE)ld) \
+ 		NM=$(if $(KERNEL_NM),$(KERNEL_NM),$(KERNEL_CROSS_COMPILE)nm) \
+@@ -133,7 +133,7 @@ kbuild_clean: kbuild_check $(TARGET_PRIMARY_OUT)/kbuild/Makefile
+ 		%-android,%-gnu,$(CROSS_TRIPLE)))- \
+ 		CROSS_COMPILE="$(CCACHE) $(KERNEL_CROSS_COMPILE)" \
+ 		EXTRA_CFLAGS="$(ALL_KBUILD_CFLAGS)" \
+-		CC=$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc) \
++		CC="$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc)" \
+ 		LD=$(if $(KERNEL_LD),$(KERNEL_LD),$(KERNEL_CROSS_COMPILE)ld) \
+ 		NM=$(if $(KERNEL_NM),$(KERNEL_NM),$(KERNEL_CROSS_COMPILE)nm) \
+ 		OBJCOPY=$(if $(KERNEL_OBJCOPY),$(KERNEL_OBJCOPY),$(KERNEL_CROSS_COMPILE)objcopy) \
+@@ -160,7 +160,7 @@ kbuild_modules_install: kbuild_check $(TARGET_PRIMARY_OUT)/kbuild/Makefile
+ 		%-android,%-gnu,$(CROSS_TRIPLE)))- \
+ 		CROSS_COMPILE="$(CCACHE) $(KERNEL_CROSS_COMPILE)" \
+ 		EXTRA_CFLAGS="$(ALL_KBUILD_CFLAGS)" \
+-		CC=$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc) \
++		CC="$(if $(KERNEL_CC),$(KERNEL_CC),$(KERNEL_CROSS_COMPILE)gcc)" \
+ 		LD=$(if $(KERNEL_LD),$(KERNEL_LD),$(KERNEL_CROSS_COMPILE)ld) \
+ 		NM=$(if $(KERNEL_NM),$(KERNEL_NM),$(KERNEL_CROSS_COMPILE)nm) \
+ 		OBJCOPY=$(if $(KERNEL_OBJCOPY),$(KERNEL_OBJCOPY),$(KERNEL_CROSS_COMPILE)objcopy) \
+-- 
+2.35.5
+
